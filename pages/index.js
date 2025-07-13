@@ -4,33 +4,44 @@ import Link from 'next/link';
 import styles from '../styles/Home.module.css';
 
 export async function getStaticProps() {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/products`);
+  const baseUrl =
+    process.env.API_URL ||
+    (process.env.NODE_ENV === 'development'
+      ? 'http://localhost:3000'
+      : 'https://nextjs-shopify-store-kappa.vercel.app'); // <- Update this to match your actual project URL
 
-  if (!res.ok) {
-    console.error('Failed to fetch products:', res.statusText);
+  try {
+    const res = await fetch(`${baseUrl}/api/products`);
+
+    if (!res.ok) {
+      console.error('Failed to fetch products:', res.statusText);
+      return { props: { products: [] } };
+    }
+
+    const rawData = await res.json();
+    const edges = rawData?.products?.edges || [];
+
+    const products = edges
+      .map(({ node }) => {
+        if (node.totalInventory <= 0) return null;
+
+        return {
+          id: node.id,
+          title: node.title,
+          description: node.description,
+          imageSrc: node.images.edges[0]?.node?.src || '',
+          imageAlt: node.title,
+          price: parseFloat(node.variants.edges[0]?.node?.priceV2?.amount || 0),
+          slug: node.handle,
+        };
+      })
+      .filter(Boolean);
+
+    return { props: { products } };
+  } catch (err) {
+    console.error('Error in getStaticProps:', err.message || err);
     return { props: { products: [] } };
   }
-
-  const rawData = await res.json();
-  const edges = rawData?.products?.edges || [];
-
-  const products = edges
-    .map(({ node }) => {
-      if (node.totalInventory <= 0) return null;
-
-      return {
-        id: node.id,
-        title: node.title,
-        description: node.description,
-        imageSrc: node.images.edges[0]?.node?.src || '',
-        imageAlt: node.title,
-        price: parseFloat(node.variants.edges[0]?.node?.priceV2?.amount || 0),
-        slug: node.handle,
-      };
-    })
-    .filter(Boolean);
-
-  return { props: { products } };
 }
 
 function Product({ product }) {
@@ -61,7 +72,10 @@ export default function Home({ products }) {
     <div className={styles.container}>
       <Head>
         <title>Luxury Jewelry Store</title>
-        <meta name="description" content="Explore our premium collection of handcrafted luxury jewelry." />
+        <meta
+          name="description"
+          content="Explore our premium collection of handcrafted luxury jewelry."
+        />
       </Head>
 
       <main className={styles.main}>
