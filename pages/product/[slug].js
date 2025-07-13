@@ -3,78 +3,48 @@ import Image from 'next/image';
 import Link from 'next/link';
 import styles from '../../styles/Home.module.css';
 
-export async function getStaticPaths() {
-  const url = new URL(process.env.URL || 'http://localhost:8888');
-  url.pathname = '/api/products';
+export async function getServerSideProps({ params }) {
+  try {
+    const url = new URL(process.env.URL || 'http://localhost:8888');
+    url.pathname = '/api/products';
 
-  const res = await fetch(url.toString());
+    const res = await fetch(url.toString());
 
-  if (!res.ok) {
-    console.error(res);
-    return { props: {} };
-  }
+    if (!res.ok) throw new Error('API fetch failed');
 
-  const data = await res.json();
+    const data = await res.json();
 
-  return {
-    paths: data.products.edges.map(({ node }) => `/product/${node.handle}`),
-    // In case you're building this yourself, the first deployment can't call
-    // the API because it hasn't been deployed yet. This test path will get you
-    // through that first deploy.
-    // paths: ['/product/test'],
-    fallback: true,
-  };
-}
+    const product = data.products.edges
+      .map(({ node }) => {
+        if (node.totalInventory <= 0) return false;
 
-export async function getStaticProps({ params }) {
-  const url = new URL(process.env.URL || 'http://localhost:8888');
-  url.pathname = '/api/products';
+        return {
+          id: node.id,
+          title: node.title,
+          description: node.description,
+          imageSrc: node.images.edges[0].node.src,
+          imageAlt: node.title,
+          price: node.variants.edges[0].node.priceV2.amount,
+          slug: node.handle,
+        };
+      })
+      .find((p) => p && p.slug === params.slug);
 
-  const res = await fetch(url.toString());
-
-  if (!res.ok) {
-    console.error(res);
-    return { props: {} };
-  }
-
-  const data = await res.json();
-
-  const product = data.products.edges
-    .map(({ node }) => {
-      if (node.totalInventory <= 0) {
-        return false;
-      }
-
+    if (!product) {
       return {
-        id: node.id,
-        title: node.title,
-        description: node.description,
-        imageSrc: node.images.edges[0].node.src,
-        imageAlt: node.title,
-        price: node.variants.edges[0].node.priceV2.amount,
-        slug: node.handle,
+        notFound: true,
       };
-    })
-    .find(({ slug }) => slug === params.slug);
+    }
 
-  return {
-    props: { product },
-    // In case you're building this yourself, the first deployment can't call
-    // the API because it hasn't been deployed yet. This dummy product will get
-    // you through that first deploy.
-    // props: {
-    //   product: {
-    //     id: 'a1',
-    //     title: 'Test',
-    //     description: 'Test',
-    //     imageSrc:
-    //       'https://cdn.shopify.com/s/files/1/0589/5798/8049/products/corgi-toy.jpg',
-    //     imageAlt: 'test',
-    //     price: '19.99',
-    //     slug: 'test',
-    //   },
-    // },
-  };
+    return {
+      props: { product },
+    };
+  } catch (err) {
+    console.error('Error in getServerSideProps:', err);
+    return {
+      notFound: true,
+    };
+  }
 }
 
 function Product({ slug, imageSrc, imageAlt, title, description, price }) {
@@ -99,16 +69,12 @@ export default function ProductPage({ product }) {
   return (
     <div className={styles.container}>
       <Head>
-        <title>Learn With Jason Store (Please buy a duck)</title>
-        <meta
-          name="description"
-          content="Jason has so many ducks. Please help."
-        />
+        <title>{product.title} | Learn With Jason Store</title>
+        <meta name="description" content={product.description} />
       </Head>
 
       <main className={styles.main}>
         <h1 className={styles.title}>Store</h1>
-
         <Link href="/">&larr; back home</Link>
 
         <div className={styles.products}>
