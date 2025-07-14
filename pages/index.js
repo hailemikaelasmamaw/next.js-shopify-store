@@ -1,45 +1,29 @@
+// pages/index.js
 import Head from 'next/head';
 import Image from 'next/image';
 import Link from 'next/link';
 import styles from '../styles/Home.module.css';
+import { fetchProducts } from '../lib/shopify';
 
-export async function getStaticProps() {
-  const baseUrl =
-    process.env.API_URL ||
-    (process.env.NODE_ENV === 'development'
-      ? 'http://localhost:3000'
-      : 'https://nextjs-shopify-store-kappa.vercel.app'); // <- Update this to match your actual project URL
-
+export async function getServerSideProps() {
   try {
-    const res = await fetch(`${baseUrl}/api/products`);
-
-    if (!res.ok) {
-      console.error('Failed to fetch products:', res.statusText);
-      return { props: { products: [] } };
-    }
-
-    const rawData = await res.json();
-    const edges = rawData?.products?.edges || [];
+    const edges = await fetchProducts();
 
     const products = edges
-      .map(({ node }) => {
-        if (node.totalInventory <= 0) return null;
-
-        return {
-          id: node.id,
-          title: node.title,
-          description: node.description,
-          imageSrc: node.images.edges[0]?.node?.src || '',
-          imageAlt: node.title,
-          price: parseFloat(node.variants.edges[0]?.node?.priceV2?.amount || 0),
-          slug: node.handle,
-        };
-      })
+      .map(({ node }) => ({
+        id: node.id,
+        title: node.title,
+        description: node.title, // or use a metafield/description if you have one
+        imageSrc: node.images.edges[0]?.node?.url || '',
+        imageAlt: node.images.edges[0]?.node?.altText || node.title,
+        price: parseFloat(node.priceRange.minVariantPrice.amount),
+        slug: node.handle,
+      }))
       .filter(Boolean);
 
     return { props: { products } };
   } catch (err) {
-    console.error('Error in getStaticProps:', err.message || err);
+    console.error('getServerSideProps error:', err.message);
     return { props: { products: [] } };
   }
 }
@@ -61,7 +45,6 @@ function Product({ product }) {
         />
       </Link>
       <h2>{product.title}</h2>
-      <p>{product.description}</p>
       <p className={styles.price}>{formattedPrice}</p>
     </div>
   );
