@@ -2,65 +2,47 @@ import Head from 'next/head';
 import Image from 'next/image';
 import Link from 'next/link';
 import styles from '../../styles/Home.module.css';
+import { fetchProductByHandle } from '../../utils/shopifyQueries';
 
 export async function getServerSideProps({ params }) {
   try {
-    const url = new URL(process.env.URL || 'http://localhost:8888');
-    url.pathname = '/api/products';
-
-    const res = await fetch(url.toString());
-
-    if (!res.ok) throw new Error('API fetch failed');
-
-    const data = await res.json();
-
-    const product = data.products.edges
-      .map(({ node }) => {
-        if (node.totalInventory <= 0) return false;
-
-        return {
-          id: node.id,
-          title: node.title,
-          description: node.description,
-          imageSrc: node.images.edges[0].node.src,
-          imageAlt: node.title,
-          price: node.variants.edges[0].node.priceV2.amount,
-          slug: node.handle,
-        };
-      })
-      .find((p) => p && p.slug === params.slug);
+    const product = await fetchProductByHandle(params.slug);
 
     if (!product) {
-      return {
-        notFound: true,
-      };
+      return { notFound: true };
     }
 
-    return {
-      props: { product },
+    const formattedProduct = {
+      id: product.id,
+      title: product.title,
+      description: product.description,
+      imageSrc: product.images.edges[0]?.node?.url || '',
+      imageAlt: product.images.edges[0]?.node?.altText || product.title,
+      price: parseFloat(product.priceRange.minVariantPrice.amount),
+      slug: product.handle,
     };
-  } catch (err) {
-    console.error('Error in getServerSideProps:', err);
+
     return {
-      notFound: true,
+      props: { product: formattedProduct },
     };
+  } catch (error) {
+    console.error('Error fetching product by slug:', error);
+    return { notFound: true };
   }
 }
 
-function Product({ slug, imageSrc, imageAlt, title, description, price }) {
+function ProductDetail({ imageSrc, imageAlt, title, description, price }) {
   const formattedPrice = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
-  });
+  }).format(price);
 
   return (
     <div className={styles.product}>
-      <a href={`/product/${slug}`}>
-        <Image src={imageSrc} alt={imageAlt} width={400} height={400} />
-      </a>
+      <Image src={imageSrc} alt={imageAlt} width={400} height={400} />
       <h2>{title}</h2>
       <p>{description}</p>
-      <p className={styles.price}>{formattedPrice.format(price)}</p>
+      <p className={styles.price}>{formattedPrice}</p>
     </div>
   );
 }
@@ -69,16 +51,15 @@ export default function ProductPage({ product }) {
   return (
     <div className={styles.container}>
       <Head>
-        <title>{product.title} | Learn With Jason Store</title>
+        <title>{product.title} | Luxury Jewelry Store</title>
         <meta name="description" content={product.description} />
       </Head>
 
       <main className={styles.main}>
-        <h1 className={styles.title}>Store</h1>
-        <Link href="/">&larr; back home</Link>
-
+        <h1 className={styles.title}>Product Details</h1>
+        <Link href="/">&larr; Back to Collection</Link>
         <div className={styles.products}>
-          <Product {...product} />
+          <ProductDetail {...product} />
         </div>
       </main>
     </div>

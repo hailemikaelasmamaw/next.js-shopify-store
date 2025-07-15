@@ -4,6 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import styles from '../styles/Home.module.css';
 import { fetchProducts } from '../lib/shopify';
+import { fetchProducts } from '../utils/shopifyQueries';
+
 
 export async function getServerSideProps() {
   try {
