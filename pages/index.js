@@ -3,9 +3,9 @@ import Head from 'next/head';
 import Image from 'next/image';
 import Link from 'next/link';
 import styles from '../styles/Home.module.css';
-import { fetchProducts } from '../lib/shopify';
-import { fetchProducts } from '../utils/shopifyQueries';
 
+// ✅ Only import fetchProducts once from your preferred source
+import { fetchProducts } from '../lib/shopify'; // or from '../utils/shopify' — not both
 
 export async function getServerSideProps() {
   try {
