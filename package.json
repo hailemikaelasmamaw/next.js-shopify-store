@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@shopify/shopify-api": "^5.0.0",
+    "clsx": "^2.1.1",
     "next": "12.2.3",
     "node-fetch": "^3.2.10",
     "react": "18.2.0",
